@@ -1,12 +1,12 @@
-﻿namespace Anywhere.ArcGIS
-{
-    using Anywhere.ArcGIS.Logging;
-    using Anywhere.ArcGIS.Operation;
-    using System;
-    using System.Net.Http;
-    using System.Threading;
-    using System.Threading.Tasks;
+﻿using System;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Anywhere.ArcGIS.Logging;
+using Anywhere.ArcGIS.Operation;
 
+namespace Anywhere.ArcGIS
+{
     /// <summary>
     /// ArcGIS Online application login type OAuth 2.0 token provider
     /// </summary>

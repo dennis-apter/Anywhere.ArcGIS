@@ -1,6 +1,7 @@
 ﻿using Anywhere.ArcGIS.Common;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.Serialization;
 
@@ -57,18 +58,18 @@ namespace Anywhere.ArcGIS.Operation
         {
             get
             {
-                string strDistances = "";
+                if (Distances == null || Distances.Count == 0)
+                {
+                    return null;
+                }
+
+                var list = new List<string>(Distances.Count);
                 foreach (double distance in Distances)
                 {
-                    strDistances += distance.ToString("0.000") + ", ";
+                    list.Add(distance.ToString("0.000", CultureInfo.InvariantCulture));
                 }
 
-                if (strDistances.Length >= 2)
-                {
-                    strDistances = strDistances.Substring(0, strDistances.Length - 2);
-                }
-
-                return strDistances;
+                return string.Join(", ", list);
             }
         }
 

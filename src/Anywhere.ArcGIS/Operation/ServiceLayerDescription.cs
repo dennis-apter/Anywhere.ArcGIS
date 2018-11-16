@@ -45,8 +45,15 @@
         [DataMember(Name = "definitionExpression")]
         public string DefinitionExpression { get; set; }
 
+        [IgnoreDataMember]
+        public string GeometryTypeString
+        {
+            get => GeometryTypeEnum.ToTypeString();
+            set => GeometryTypes.FromTypeString(value);
+        }
+
         [DataMember(Name = "geometryType")]
-        public string GeometryTypeString { get; set; }
+        public GeometryType GeometryTypeEnum { get; set; }
 
         [IgnoreDataMember]
         public Type GeometryType { get { return GeometryTypes.ToTypeMap[GeometryTypeString](); } }
@@ -61,10 +68,10 @@
         public List<RelatedLayer> SubLayers { get; set; }
 
         [DataMember(Name = "minScale")]
-        public int MinimumScale { get; set; }
+        public double MinimumScale { get; set; }
 
         [DataMember(Name = "maxScale")]
-        public int MaximumScale { get; set; }
+        public double MaximumScale { get; set; }
 
         [DataMember(Name = "defaultVisibility")]
         public bool DefaultVisibility { get; set; }

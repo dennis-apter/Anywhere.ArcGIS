@@ -1,4 +1,7 @@
-﻿namespace Anywhere.ArcGIS
+﻿using System.Globalization;
+using System.Text;
+
+namespace Anywhere.ArcGIS
 {
     using Common;
     using System;
@@ -58,11 +61,16 @@
 
         public static string UrlEncode(this string text)
         {
-            return string.IsNullOrWhiteSpace(text) 
-                ? text 
-                : text.Length > 65520
-                    ? text // this will get sent to POST anyway so don't bother escaping
-                    : Uri.EscapeDataString(text);
+            if (string.IsNullOrWhiteSpace(text) || text.Length > 65520)
+            {
+                // this will get sent to POST anyway so don't bother escaping
+                return text;
+            }
+            else
+            {
+                var t = text.Trim('\"');
+                return Uri.EscapeDataString(t);
+            }
         }
 
         /// <summary>
@@ -72,10 +80,7 @@
         /// <returns>Byte representation of the hex-encoded input</returns>
         public static byte[] HexToBytes(this string hex)
         {
-            if (string.IsNullOrWhiteSpace(hex))
-            {
-                return null;
-            }
+            if (string.IsNullOrWhiteSpace(hex)) return null;
 
             int length = hex.Length;
 
@@ -92,6 +97,28 @@
             }
 
             return bytes;
+        }
+
+        internal static string Join<T>(this T[] array, string separator = ",", string format = null, IFormatProvider provider = null)
+            where T: IFormattable
+        {
+            if (provider == null)
+            {
+                provider = CultureInfo.InvariantCulture;
+            }
+
+            var sb = new StringBuilder();
+            foreach (var d in array)
+            {
+                if (sb.Length > 0)
+                {
+                    sb.Append(separator);
+                }
+
+                sb.Append(d.ToString(format, provider));
+            }
+
+            return sb.ToString();
         }
     }
 }

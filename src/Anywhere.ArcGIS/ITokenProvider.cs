@@ -1,5 +1,5 @@
-﻿using Anywhere.ArcGIS.Operation;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using Anywhere.ArcGIS.Operation;
 
 namespace Anywhere.ArcGIS
 {
@@ -33,5 +33,32 @@ namespace Anywhere.ArcGIS
         /// The username that this token provider is for
         /// </summary>
         string UserName { get; }
+    }
+
+    public interface ITokenProviderWithGenerateToken
+    {
+        IGenerateToken GenerateToken { get; }
+    }
+
+    public interface IGenerateToken
+    {
+        bool DontForceHttps { get; set; }
+        string Referer { get; set; }
+        string Format { get; set; }
+    }
+
+    public interface IBasicGenerateToken : IGenerateToken
+    {
+        string Username { get; set; }
+        string Password { get; set; }
+        string Client { get; set; }
+        string Ip { get; set; }
+        bool Encrypted { get; }
+    }
+
+    public interface IFederatedGenerateToken : IGenerateToken
+    {
+        string FederatedServerUrl { get; }
+        string Request { get; }
     }
 }

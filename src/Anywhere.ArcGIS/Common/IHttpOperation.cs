@@ -4,10 +4,10 @@
 
     public interface IHttpOperation
     {
-        IEndpoint Endpoint { get; }
+        IEndpoint Endpoint { get; set; }
 
-        Action BeforeRequest { get; }
+        Action BeforeRequest { get; set; }
 
-        Action AfterRequest { get; }
+        Action AfterRequest { get; set; }
     }
 }

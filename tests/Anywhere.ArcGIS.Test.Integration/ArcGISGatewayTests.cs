@@ -1,4 +1,6 @@
-﻿namespace Anywhere.ArcGIS.Test.Integration
+﻿using System.IO;
+
+namespace Anywhere.ArcGIS.Test.Integration
 {
     using Anywhere.ArcGIS;
     using Anywhere.ArcGIS.Common;
@@ -83,7 +85,7 @@
         }
 
         [Theory]
-        [InlineData("http://mapserv.utah.gov/arcgis/")]
+        [InlineData("http://mapserv.utah.gov/arcgis/", Skip = "Service Unvailable")]
         [InlineData("https://services.arcgisonline.com/arcgis")]
         public async Task CanDescribeSite(string rootUrl)
         {
@@ -208,7 +210,7 @@
         }
 
         private async Task QueryCanGetBatchFeatures<T>(string rootUrl, string relativeUrl, bool returnGeometry)
-            where T:IGeometry
+            where T: IGeometry
         {
             var gateway = new PortalGateway(rootUrl);
             var query = new Query(relativeUrl)
@@ -555,7 +557,14 @@
 
             var queryPointExtentResults = new Query(serviceUrl.AsEndpoint())
             {
-                Geometry = new Extent { XMin = 0, YMin = 0, XMax = 180, YMax = -90, SpatialReference = SpatialReference.WGS84 }, // SE quarter of globe
+                Geometry = new Extent
+                {
+                    XMin = 0,
+                    YMin = 0, 
+                    XMax = 180,
+                    YMax = -90,
+                    SpatialReference = SpatialReference.WGS84
+                }, // SE quarter of globe
                 OutputSpatialReference = SpatialReference.WebMercator
             };
 
@@ -564,19 +573,27 @@
                 return gateway.Query<Point>(queryPointExtentResults);
             });
 
-            var rings = new Point[]
-            {
-                new Point { X = 0, Y = 0 },
-                new Point { X = 180, Y = 0 },
-                new Point { X = 180, Y = -90 },
-                new Point { X = 0, Y = -90 },
-                new Point { X = 0, Y = 0 }
-            }.ToPointCollectionList();
-
             var queryPointPolygonResults = new Query(serviceUrl)
             {
-                Geometry = new Polygon { Rings = rings }
+                Geometry = new Polygon
+                {
+                    Rings = new List<Ring>
+                    {
+                        new Ring
+                        {
+                            Points = new List<Point>
+                            {
+                                new Point { X = 0, Y = 0 },
+                                new Point { X = 180, Y = 0 },
+                                new Point { X = 180, Y = -90 },
+                                new Point { X = 0, Y = -90 },
+                                new Point { X = 0, Y = 0 }
+                            }
+                        }
+                    }
+                }
             };
+
             var resultPointPolygonResults = await IntegrationTestFixture.TestPolicy.ExecuteAsync(() =>
             {
                 return gateway.Query<Point>(queryPointPolygonResults);
@@ -845,9 +862,15 @@
                 });
             });
 
+            var dir = new DirectoryInfo(@"c:\temp\_tests_");
+            if (!dir.Exists)
+            {
+                dir.Create();
+            }
+
             var result = await IntegrationTestFixture.TestPolicy.ExecuteAsync(() =>
             {
-                return gateway.DownloadExportMapToLocal(exportMapResult, @"c:\temp\_tests_");
+                return gateway.DownloadExportMapToLocal(exportMapResult, dir.ToString());
             });
 
             Assert.NotNull(result);

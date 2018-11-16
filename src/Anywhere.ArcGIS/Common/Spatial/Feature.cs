@@ -11,7 +11,8 @@ namespace Anywhere.ArcGIS.Common
     /// <typeparam name="T">Type of geometry that the feature represents.</typeparam>
     /// <remarks>All properties are optional.</remarks>
     [DataContract]
-    public class Feature<T> : IEquatable<Feature<T>> where T : IGeometry
+    public class Feature<T> : IEquatable<Feature<T>>, IFeature
+        where T : IGeometry
     {
         const string ObjectIDName = "objectid";
         const string GlobalIDName = "globalid";
@@ -59,7 +60,7 @@ namespace Anywhere.ArcGIS.Common
         /// </summary>
         /// <remarks>Date values are encoded as numbers. The number represents the number of milliseconds since epoch (January 1, 1970) in UTC.</remarks>
         [DataMember(Name = "attributes")]
-        public Dictionary<string, object> Attributes { get; set; }
+        public IDictionary<string, object> Attributes { get; set; }
 
         long _oid = 0;
         /// <summary>
@@ -124,6 +125,10 @@ namespace Anywhere.ArcGIS.Common
                 return _id;
             }
         }
+
+        IGeometry IFeature.Geometry => Geometry;
+
+        IDictionary<string, object> IFeatureAttributes.Attributes => Attributes;
 
         /// <summary>
         /// Get the value for an attribute

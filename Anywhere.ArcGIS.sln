@@ -7,9 +7,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Anywhere.ArcGIS", "src\Anyw
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{095789B0-2BE9-44C9-B059-3F0231D45A5D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Anywhere.ArcGIS.Test", "tests\Anywhere.ArcGIS.Test\Anywhere.ArcGIS.Test.csproj", "{A239F500-53C4-47B4-B159-0AF607F770B2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Anywhere.ArcGIS.Test", "tests\Anywhere.ArcGIS.Test\Anywhere.ArcGIS.Test.csproj", "{A239F500-53C4-47B4-B159-0AF607F770B2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Anywhere.ArcGIS.Test.Integration", "tests\Anywhere.ArcGIS.Test.Integration\Anywhere.ArcGIS.Test.Integration.csproj", "{69EB2440-69B9-49AA-BA34-6E00881EE76E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Anywhere.ArcGIS.Test.Integration", "tests\Anywhere.ArcGIS.Test.Integration\Anywhere.ArcGIS.Test.Integration.csproj", "{69EB2440-69B9-49AA-BA34-6E00881EE76E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

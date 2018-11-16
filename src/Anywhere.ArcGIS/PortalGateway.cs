@@ -52,19 +52,42 @@
             {
                 if (!string.IsNullOrWhiteSpace(info.AuthenticationInfo?.TokenServicesUrl))
                 {
-                    if (!info.AuthenticationInfo.TokenServicesUrl.StartsWith(gateway.RootUrl, StringComparison.OrdinalIgnoreCase))
+                    var root = new UriBuilder(gateway.RootUrl);
+                    var tokenServices = new UriBuilder(info.AuthenticationInfo.TokenServicesUrl)
                     {
-                        tokenProvider = new FederatedTokenProvider(
-                            new ServerFederatedWithPortalTokenProvider(info.AuthenticationInfo.TokenServicesUrl.Replace("/generateToken", ""), username, password, serializer: serializer, httpClientFunc: httpClientFunc),
-                            info.AuthenticationInfo.TokenServicesUrl.Replace("/generateToken", ""),
-                            gateway.RootUrl,
-                            referer: info.AuthenticationInfo.TokenServicesUrl.Replace("/sharing/rest/generateToken", "/rest"),
-                            serializer: serializer, 
+                        Scheme = root.Scheme,
+                        Port = root.Port
+                    };
+
+                    if (Uri.TryCreate(info.SoapUrl, UriKind.Absolute, out var soapUrl))
+                    {
+                        root.Host = soapUrl.Host;
+                    }
+
+                    var isSameServerServices = tokenServices.ToString().StartsWith(root.ToString(), StringComparison.OrdinalIgnoreCase);
+                    if (isSameServerServices)
+                    {
+                        tokenProvider = new TokenProvider(
+                            info.AuthenticationInfo.TokenServicesUrl, 
+                            username,
+                            password,
+                            serializer: serializer,
                             httpClientFunc: httpClientFunc);
                     }
                     else
                     {
-                        tokenProvider = new TokenProvider(info.AuthenticationInfo?.TokenServicesUrl, username, password, serializer: serializer, httpClientFunc: httpClientFunc);
+                        tokenProvider = new FederatedTokenProvider(
+                            new ServerFederatedWithPortalTokenProvider(
+                                info.AuthenticationInfo.TokenServicesUrl.Replace("/generateToken", ""),
+                                username,
+                                password, 
+                                serializer: serializer, 
+                                httpClientFunc: httpClientFunc),
+                            info.AuthenticationInfo.TokenServicesUrl.Replace("/generateToken", ""),
+                            gateway.RootUrl,
+                            referer: info.AuthenticationInfo.TokenServicesUrl.Replace("/sharing/rest/generateToken", "/rest"),
+                            serializer: serializer,
+                            httpClientFunc: httpClientFunc);
                     }
                 }
             }
@@ -196,7 +219,7 @@
             {
                 throw new ArgumentNullException(nameof(siteDescription.Services));
             }
-          
+
             return DescribeServices(siteDescription.Services.ToList(), ct);
         }
 
@@ -332,7 +355,7 @@
         /// <param name="ct">Optional cancellation token to cancel pending request</param>
         /// <returns></returns>
         public virtual Task<SingleInputGeocodeResponse> Geocode(SingleInputGeocode geocode, CancellationToken ct = default(CancellationToken))
-        {            
+        {
             return Get<SingleInputGeocodeResponse, SingleInputGeocode>(geocode, ct);
         }
 

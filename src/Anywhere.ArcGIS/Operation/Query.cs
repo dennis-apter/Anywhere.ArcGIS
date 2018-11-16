@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Text;
+using Newtonsoft.Json;
 
 namespace Anywhere.ArcGIS.Operation
 {
@@ -10,7 +12,7 @@ namespace Anywhere.ArcGIS.Operation
     /// Basic query request operation
     /// </summary>
     [DataContract]
-    public class Query : ArcGISServerOperation
+    public class Query : QueryBase
     {
         public Query(string relativeUrl, Action beforeRequest = null, Action afterRequest = null)
             : this(relativeUrl.AsEndpoint(), beforeRequest, afterRequest)
@@ -25,7 +27,6 @@ namespace Anywhere.ArcGIS.Operation
         {
             Where = "1=1";
             OutFields = new List<string>();
-            ReturnGeometry = true;
             SpatialRelationship = SpatialRelationshipTypes.Intersects;
         }
 
@@ -66,7 +67,7 @@ namespace Anywhere.ArcGIS.Operation
             get
             {
                 return Geometry == null
-                    ? GeometryTypes.Envelope
+                    ? GeometryTypes.Null
                     : GeometryTypes.TypeMap[Geometry.GetType()]();
             }
         }
@@ -83,7 +84,35 @@ namespace Anywhere.ArcGIS.Operation
         /// </summary>
         /// <remarks>Default is '*' (all fields)</remarks>
         [DataMember(Name = "outFields")]
-        public string OutFieldsValue { get { return OutFields == null || !OutFields.Any() ? "*" : string.Join(",", OutFields); } }
+        public string OutFieldsValue
+        {
+            get { return OutFields == null || !OutFields.Any() ? "*" : string.Join(",", OutFields); }
+            set
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    var parts = value.Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 0)
+                    {
+                        OutFields = new List<string>(parts.Length);
+                        foreach (var part in parts)
+                        {
+                            if (part == "*")
+                            {
+                                OutFields.Clear();
+                                break;
+                            }
+
+                            OutFields.Add(part);
+                        }
+
+                        return;
+                    }
+                }
+
+                OutFields = null;
+            }
+        }
 
         /// <summary>
         ///  The object IDs of this layer/table to be queried.
@@ -95,7 +124,32 @@ namespace Anywhere.ArcGIS.Operation
         /// The list of object Ids to be queried. This list is a comma delimited list of field names.
         /// </summary>
         [DataMember(Name = "objectIds")]
-        public string ObjectIdsValue { get { return ObjectIds == null || !ObjectIds.Any() ? null : string.Join(",", ObjectIds); } }
+        public string ObjectIdsValue
+        {
+            get { return ObjectIds == null || !ObjectIds.Any() ? null : string.Join(",", ObjectIds); }
+            set
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    var parts = value.Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 0)
+                    {
+                        ObjectIds = new List<long>(parts.Length);
+                        foreach (var part in parts)
+                        {
+                            if (long.TryParse(part, out var id))
+                            {
+                                ObjectIds.Add(id);
+                            }
+                        }
+
+                        return;
+                    }
+                }
+
+                ObjectIds = null;
+            }
+        }
 
         /// <summary>
         /// The spatial reference of the returned geometry.
@@ -114,67 +168,6 @@ namespace Anywhere.ArcGIS.Operation
         public string SpatialRelationship { get; set; }
 
         /// <summary>
-        /// If true, the resultset includes the geometry associated with each result.
-        /// </summary>
-        /// <remarks>Default is true</remarks>
-        [DataMember(Name = "returnGeometry")]
-        public bool ReturnGeometry { get; set; }
-
-        [IgnoreDataMember]
-        public DateTime? From { get; set; }
-
-        [IgnoreDataMember]
-        public DateTime? To { get; set; }
-
-        /// <summary>
-        /// The time instant or the time extent to query.
-        /// </summary>
-        /// <remarks>If no To value is specified we will use the From value again, equivalent of using a time instant.</remarks>
-        [DataMember(Name = "time")]
-        public string Time
-        {
-            get
-            {
-                return (From == null) ? null : string.Format("{0},{1}",
-                  From.Value.ToUnixTime(),
-                  (To ?? From.Value).ToUnixTime());
-            }
-        }
-
-        /// <summary>
-        /// This option can be used to specify the maximum allowable offset to be used for generalizing geometries returned by the query operation.
-        /// </summary>
-        [DataMember(Name = "maxAllowableOffset")]
-        public int? MaxAllowableOffset { get; set; }
-
-        /// <summary>
-        /// This option can be used to specify the number of decimal places in the response geometries returned by the query operation.
-        /// This applies to X and Y values only (not m or z values).
-        /// </summary>
-        [DataMember(Name = "geometryPrecision")]
-        public int? GeometryPrecision { get; set; }
-
-        /// <summary>
-        /// If true, Z values will be included in the results if the features have Z values. Otherwise, Z values are not returned.
-        /// </summary>
-        /// <remarks>Default is false. This parameter only applies if returnGeometry=true.</remarks>
-        [DataMember(Name = "returnZ")]
-        public bool ReturnZ { get; set; }
-
-        /// <summary>
-        /// If true, M values will be included in the results if the features have M values. Otherwise, M values are not returned.
-        /// </summary>
-        /// <remarks>Default is false. This parameter only applies if returnGeometry=true.</remarks>
-        [DataMember(Name = "returnM")]
-        public bool ReturnM { get; set; }
-
-        /// <summary>
-        /// GeoDatabase version to query.
-        /// </summary>
-        [DataMember(Name = "gdbVersion")]
-        public string GeodatabaseVersion { get; set; }
-
-        /// <summary>
         /// If true, returns distinct values based on the fields specified in outFields.
         /// This parameter applies only if supportsAdvancedQueries property of the layer is true.
         [DataMember(Name = "returnDistinctValues")]
@@ -189,11 +182,28 @@ namespace Anywhere.ArcGIS.Operation
         /// <summary>
         /// One or more field names on which the features/records need to be ordered.
         /// Use ASC or DESC for ascending or descending, respectively, following every field to control the ordering.
-        /// Defaults to ASC (ascending order) if <ORDER> is unspecified.
+        /// Defaults to ASC (ascending order) if &lt;ORDER&gt; is unspecified.
         /// </summary>
         /// <remarks>Default is '*' (all fields)</remarks>
         [DataMember(Name = "orderByFields")]
-        public string OrderByValue { get { return OrderBy == null || !OrderBy.Any() ? null : string.Join(",", OrderBy); } }
+        public string OrderByValue
+        {
+            get { return OrderBy == null || !OrderBy.Any() ? null : string.Join(",", OrderBy); }
+            set
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    var parts = value.Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 0)
+                    {
+                        OrderBy = new List<string>(parts);
+                        return;
+                    }
+                }
+
+                OrderBy = null;
+            }
+        }
 
         /// <summary>
         /// This option was added at 10.3.
@@ -229,7 +239,24 @@ namespace Anywhere.ArcGIS.Operation
         /// </summary>
         /// <remarks>Default is ''</remarks>
         [DataMember(Name = "groupByFieldsForStatistics")]
-        public string GroupByFieldsValue { get { return GroupByFields == null || !GroupByFields.Any() ? "" : string.Join(",", GroupByFields); } }
+        public string GroupByFieldsValue
+        {
+            get { return GroupByFields == null || !GroupByFields.Any() ? "" : string.Join(",", GroupByFields); }
+            set
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    var parts = value.Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 0)
+                    {
+                        GroupByFields = new List<string>(parts);
+                        return;
+                    }
+                }
+
+                GroupByFields = null;
+            }
+        }
 
 
         /// <summary>
@@ -240,7 +267,7 @@ namespace Anywhere.ArcGIS.Operation
     }
 
     [DataContract]
-    public class QueryResponse<T> : PortalResponse
+    public class QueryResponse<T> : PortalResponse, IQueryResponse
         where T : IGeometry
     {
         public QueryResponse()
@@ -288,6 +315,31 @@ namespace Anywhere.ArcGIS.Operation
                     : FieldAliases[DisplayFieldName];
             }
         }
+
+        IEnumerable<IFeature> IQueryResponse.Features => Features;
+    }
+
+    public interface IQueryResponse : IPortalResponse
+    {
+        string DisplayFieldName { get; }
+
+        string ObjectIdFieldName { get; }
+
+        string GlobalIdFieldName { get; }
+
+        string GeometryTypeString { get; }
+
+        Type GeometryType { get; }
+
+        IEnumerable<IFeature> Features { get; }
+
+        SpatialReference SpatialReference { get; }
+
+        Dictionary<string, string> FieldAliases { get; }
+
+        IEnumerable<Field> Fields { get; set; }
+
+        bool? ExceededTransferLimit { get; }
     }
 
     [DataContract]
@@ -313,6 +365,25 @@ namespace Anywhere.ArcGIS.Operation
 
         [DataMember(Name = "defaultValue")]
         public string DefaultValue { get; set; }
+
+        public override string ToString()
+        {
+            var sb = new StringBuilder(Name)
+                .Append(" ")
+                .Append(Type);
+
+            if (Length.HasValue)
+            {
+                sb.Append("(").Append(Length.Value).Append(")");
+            }
+
+            if (!string.IsNullOrEmpty(Alias))
+            {
+                sb.Append("; Alias = ").Append(Alias);
+            }
+
+            return sb.ToString();
+        }
     }
 
     /// <summary>
@@ -333,7 +404,7 @@ namespace Anywhere.ArcGIS.Operation
         }
 
         [DataMember(Name = "returnIdsOnly")]
-        public bool ReturnIdsOnly { get { return true; } }
+        public bool ReturnIdsOnly { get; set; } = true;
     }
 
     [DataContract]
@@ -363,7 +434,7 @@ namespace Anywhere.ArcGIS.Operation
         }
 
         [DataMember(Name = "returnCountOnly")]
-        public bool ReturnCountOnly { get { return true; } }
+        public bool ReturnCountOnly { get; set; } = true;
     }
 
     [DataContract]
@@ -388,7 +459,7 @@ namespace Anywhere.ArcGIS.Operation
         { }
 
         [DataMember(Name = "returnExtentOnly")]
-        public bool ReturnExtentOnly { get { return true; } }
+        public bool ReturnExtentOnly { get; set; } = true;
     }
 
     [DataContract]
@@ -396,33 +467,6 @@ namespace Anywhere.ArcGIS.Operation
     {
         [DataMember(Name = "extent")]
         public Extent Extent { get; set; }
-    }
-
-    public static class GeometryTypes
-    {
-        public readonly static Dictionary<Type, Func<string>> TypeMap = new Dictionary<Type, Func<string>>
-        {
-            { typeof(Point), () => GeometryTypes.Point },
-            { typeof(MultiPoint), () => GeometryTypes.MultiPoint },
-            { typeof(Extent), () => GeometryTypes.Envelope },
-            { typeof(Polygon), () => GeometryTypes.Polygon },
-            { typeof(Polyline), () => GeometryTypes.Polyline }
-        };
-
-        public readonly static Dictionary<string, Func<Type>> ToTypeMap = new Dictionary<string, Func<Type>>
-        {
-            { GeometryTypes.Point, () => typeof(Point) },
-            { GeometryTypes.MultiPoint, () => typeof(MultiPoint) },
-            { GeometryTypes.Envelope, () => typeof(Extent) },
-            { GeometryTypes.Polygon, () => typeof(Polygon) },
-            { GeometryTypes.Polyline, () => typeof(Polyline) }
-        };
-
-        public const string Point = "esriGeometryPoint";
-        public const string MultiPoint = "esriGeometryMultipoint";
-        public const string Polyline = "esriGeometryPolyline";
-        public const string Polygon = "esriGeometryPolygon";
-        public const string Envelope = "esriGeometryEnvelope";
     }
 
     public static class SpatialRelationshipTypes
@@ -442,15 +486,15 @@ namespace Anywhere.ArcGIS.Operation
     {
         public readonly static Dictionary<Type, Func<string>> FieldDataTypeMap = new Dictionary<Type, Func<string>>
         {
-            { typeof(string), () => FieldDataTypes.EsriString },
-            { typeof(int), () => FieldDataTypes.EsriInteger },
-            { typeof(short), () => FieldDataTypes.EsriInteger },
-            { typeof(long), () => FieldDataTypes.EsriInteger },
-            { typeof(decimal), () => FieldDataTypes.EsriDouble },
-            { typeof(double), () => FieldDataTypes.EsriDouble },
-            { typeof(float), () => FieldDataTypes.EsriDouble },
-            { typeof(DateTime), () => FieldDataTypes.EsriDate },
-            { typeof(bool), () => FieldDataTypes.EsriString }
+            { typeof(string), () => EsriString },
+            { typeof(int), () => EsriInteger },
+            { typeof(short), () => EsriInteger },
+            { typeof(long), () => EsriInteger },
+            { typeof(decimal), () => EsriDouble },
+            { typeof(double), () => EsriDouble },
+            { typeof(float), () => EsriDouble },
+            { typeof(DateTime), () => EsriDate },
+            { typeof(bool), () => EsriString }
         };
 
         public const string EsriString = "esriFieldTypeString";
@@ -482,5 +526,123 @@ namespace Anywhere.ArcGIS.Operation
         public const string Average = "avg";
         public const string StandardDeviation = "stddev";
         public const string Variance = "var";
+    }
+
+    [DataContract]
+    public abstract class QueryBase : ArcGISServerOperation
+    {
+        protected QueryBase(IEndpoint endpoint, Action beforeRequest = null, Action afterRequest = null)
+            : base(endpoint, beforeRequest, afterRequest)
+        {
+        }
+
+        protected QueryBase(string endpoint, Action beforeRequest = null, Action afterRequest = null)
+            : base(endpoint, beforeRequest, afterRequest)
+        {
+        }
+
+        /// <summary>
+        /// If true, the resultset includes the geometry associated with each result.
+        /// </summary>
+        /// <remarks>Default is true</remarks>
+        [DataMember(Name = "returnGeometry")]
+        public bool ReturnGeometry { get; set; } = true;
+
+        /// <summary>
+        /// This option can be used to specify the maximum allowable offset to be used for generalizing geometries returned by the query operation.
+        /// </summary>
+        [DataMember(Name = "maxAllowableOffset")]
+        public int? MaxAllowableOffset { get; set; }
+
+        /// <summary>
+        /// This option can be used to specify the number of decimal places in the response geometries returned by the query operation.
+        /// This applies to X and Y values only (not m or z values).
+        /// </summary>
+        [DataMember(Name = "geometryPrecision")]
+        public int? GeometryPrecision { get; set; }
+
+        /// <summary>
+        /// If true, Z values will be included in the results if the features have Z values. Otherwise, Z values are not returned.
+        /// </summary>
+        /// <remarks>Default is false. This parameter only applies if returnGeometry=true.</remarks>
+        [DataMember(Name = "returnZ")]
+        public bool ReturnZ { get; set; }
+
+        /// <summary>
+        /// If true, M values will be included in the results if the features have M values. Otherwise, M values are not returned.
+        /// </summary>
+        /// <remarks>Default is false. This parameter only applies if returnGeometry=true.</remarks>
+        [DataMember(Name = "returnM")]
+        public bool ReturnM { get; set; }
+
+        /// <summary>
+        /// GeoDatabase version to query.
+        /// </summary>
+        [DataMember(Name = "gdbVersion")]
+        public string GeodatabaseVersion { get; set; }
+
+        /// <summary>
+        /// The sqlFormat parameter can be either standard SQL92 standard 
+        /// or it can use the native SQL of the underlying datastore native. 
+        /// The default is none which means the sqlFormat depends on useStandardizedQuery parameter.
+        /// Values: none , standard , native
+        /// </summary>
+        [DataMember(Name = "sqlFormat")]
+        public string SqlFormat { get; set; }
+
+        /// <summary>
+        /// <para>Description: This option dictates how the geometry of a multipatch feature will be returned.</para>
+        /// <para>Values: &lt;xyFootprint | stripMaterials | embedMaterials | externalizeTextures&gt;</para>
+        /// <para>This parameter only applies if the layer's geometryType property is esriGeometryMultiPatch. 
+        /// If multipatchOption=xyFootprint, the xy footprint of each multipatch geometry will be returned in the result.</para>
+        /// <para>Currently, the only supported value is xyFootprint.
+        /// If returnGeometry=false, specifying the multipatchOption is not required.</para>
+        /// </summary>
+        [DataMember(Name = "multipatchOption")]
+        public string MultipatchOption { get; set; }
+
+        /// <summary>
+        /// <para>This option was added at 10.5.</para>
+        /// <para>Description: Optional parameter which is false by default.</para>
+        /// <para>When set to true, returns true curves in output geometries.</para>
+        /// <para>When set to false, curves are converted to densified polylines or polygons.</para>
+        /// <para>Values: true|false</para>
+        /// <para>Example: <example>trueCurveClient=true</example></para>
+        /// </summary>
+        [DataMember(Name = "returnTrueCurves")]
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ReturnTrueCurves { get; set; }
+
+        /// <summary>
+        /// The historic moment to query. 
+        /// This parameter applies only if the supportsQueryWithHistoricMoment
+        /// property of the layers being queried is set to true. 
+        /// This setting is provided in the layer resource.
+        /// historicMoment=(Epoch time in milliseconds)
+        /// </summary>
+        [DataMember(Name = "historicMoment")]
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public int? HistoricMoment { get; set; }
+
+        /// <summary>
+        /// The time instant or the time extent to query.
+        /// </summary>
+        /// <remarks>If no To value is specified we will use the From value again, equivalent of using a time instant.</remarks>
+        [DataMember(Name = "time")]
+        public string Time
+        {
+            get
+            {
+                return (From == null) ? null : string.Format("{0},{1}",
+                    From.Value.ToUnixTime(),
+                    (To ?? From.Value).ToUnixTime());
+            }
+        }
+
+        [IgnoreDataMember]
+        public DateTime? From { get; set; }
+
+        [IgnoreDataMember]
+        public DateTime? To { get; set; }
     }
 }

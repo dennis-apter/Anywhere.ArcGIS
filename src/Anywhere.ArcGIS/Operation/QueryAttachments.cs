@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Text.RegularExpressions;
+using Path = System.IO.Path;
 
 namespace Anywhere.ArcGIS.Operation
 {

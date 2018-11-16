@@ -316,7 +316,7 @@
                     return string.Empty;
                 }
 
-                var r = new Regex(string.Format("[{0}]", Regex.Escape(new string(Path.GetInvalidFileNameChars()))));
+                var r = new Regex(string.Format("[{0}]", Regex.Escape(new string(System.IO.Path.GetInvalidFileNameChars()))));
                 return r.Replace(Name, string.Empty);
             }
         }

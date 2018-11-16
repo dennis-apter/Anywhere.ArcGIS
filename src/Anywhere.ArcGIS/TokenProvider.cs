@@ -1,18 +1,18 @@
-﻿namespace Anywhere.ArcGIS
-{
-    using Logging;
-    using Operation;
-    using Operation.Admin;
-    using System;
-    using System.Linq;
-    using System.Net.Http;
-    using System.Threading;
-    using System.Threading.Tasks;
+﻿using System;
+using System.Linq;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Anywhere.ArcGIS.Logging;
+using Anywhere.ArcGIS.Operation;
+using Anywhere.ArcGIS.Operation.Admin;
 
+namespace Anywhere.ArcGIS
+{
     /// <summary>
     /// ArcGIS Server token provider
     /// </summary>
-    public class TokenProvider : ITokenProvider, IDisposable
+    public class TokenProvider : ITokenProvider, ITokenProviderWithGenerateToken, IDisposable
     {
         HttpClient _httpClient;
         protected GenerateToken TokenRequest;
@@ -30,8 +30,9 @@
         /// <param name="serializer">Used to (de)serialize requests and responses</param>
         /// <param name="referer">Referer url to use for the token generation</param>
         /// <param name="cryptoProvider">Used to encrypt the token reuqest. If not set it will use the default from CryptoProviderFactory</param>
+        /// <param name="httpClientFunc"></param>
         public TokenProvider(string rootUrl, string username, string password, ISerializer serializer = null, string referer = "", ICryptoProvider cryptoProvider = null, Func<HttpClient> httpClientFunc = null)
-            : this (() => LogProvider.For<TokenProvider>(), rootUrl, username, password, serializer, referer, cryptoProvider, httpClientFunc)
+            : this (LogProvider.For<TokenProvider>, rootUrl, username, password, serializer, referer, cryptoProvider, httpClientFunc)
         { }
 
         internal TokenProvider(Func<ILog> log, string rootUrl, string username, string password, ISerializer serializer = null, string referer = "", ICryptoProvider cryptoProvider = null, Func<HttpClient> httpClientFunc = null)
@@ -97,6 +98,8 @@
         public string UserName { get; private set; }
 
         public ISerializer Serializer { get; private set; }
+
+        IGenerateToken ITokenProviderWithGenerateToken.GenerateToken => TokenRequest;
 
         void CheckRefererHeader()
         {

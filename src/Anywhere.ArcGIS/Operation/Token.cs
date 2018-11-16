@@ -9,7 +9,7 @@ namespace Anywhere.ArcGIS.Operation
     /// The call is only allowed over HTTPS and must be a POST.
     /// </summary>
     [DataContract]
-    public class GenerateToken : CommonParameters, IEndpoint
+    public class GenerateToken : CommonParameters, IEndpoint, IBasicGenerateToken
     {
         public GenerateToken(string username, string password)
         {
@@ -24,7 +24,19 @@ namespace Anywhere.ArcGIS.Operation
         /// </summary>
         /// <remarks>The default value is referer. Setting it to null will also set the Referer to null</remarks>
         [DataMember(Name = "client")]
-        public string Client { get { return _client; } set { _client = value; if (string.IsNullOrWhiteSpace(_client)) Referer = null; } }
+        public string Client
+        {
+            get { return _client; }
+            set
+            {
+                _client = value;
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    Referer = null;
+                    Ip = null;
+                }
+            }
+        }
 
         string _referer;
         /// <summary>
@@ -32,19 +44,41 @@ namespace Anywhere.ArcGIS.Operation
         /// This parameter must be specified if the value of the client parameter is referer.
         /// </summary>
         [DataMember(Name = "referer")]
-        public string Referer { get { return _referer; } set { _referer = value; if (!string.IsNullOrWhiteSpace(_referer)) Client = "referer"; } }
+        public string Referer { 
+            get { return _referer; }
+            set
+            {
+                _referer = value; 
+                if (!string.IsNullOrWhiteSpace(value)) 
+                    Client = "referer";
+            }
+        }
+
+        private string _ip;
+
+        [DataMember(Name = "ip")]
+        public string Ip
+        {
+            get { return _ip; }
+            set
+            {
+                _ip = value;
+                if (!string.IsNullOrWhiteSpace(value))
+                    Client = "ip";
+            }
+        }
 
         /// <summary>
         /// Username of user who wants to get a token.
         /// </summary>
         [DataMember(Name = "username")]
-        public string Username { get; private set; }
+        public string Username { get; set; }
 
         /// <summary>
         /// Password of user who wants to get a token.
         /// </summary>
         [DataMember(Name = "password")]
-        public string Password { get; private set; }
+        public string Password { get; set; }
 
         [DataMember(Name = "encrypted")]
         public bool Encrypted { get; private set; }
@@ -112,13 +146,12 @@ namespace Anywhere.ArcGIS.Operation
 
         public string BuildAbsoluteUrl(string rootUrl)
         {
-            if (string.IsNullOrWhiteSpace(rootUrl))
-            {
-                throw new ArgumentNullException("rootUrl", "rootUrl is null.");
-            }
+            if (string.IsNullOrWhiteSpace(rootUrl)) throw new ArgumentNullException("rootUrl", "rootUrl is null.");
 
             return IsFederated
-                ? (DontForceHttps ? rootUrl.Replace("sharing/rest/", "").Replace("sharing/", "") + "sharing/rest/" : rootUrl.Replace("http://", "https://").Replace("sharing/rest/", "").Replace("sharing/", "") + "sharing/rest/") + RelativeUrl.Replace("tokens/", "")
+                ? (DontForceHttps 
+                      ? rootUrl.Replace("sharing/rest/", "").Replace("sharing/", "") + "sharing/rest/" 
+                      : rootUrl.Replace("http://", "https://").Replace("sharing/rest/", "").Replace("sharing/", "") + "sharing/rest/") + RelativeUrl.Replace("tokens/", "")
                 : (DontForceHttps ? rootUrl : rootUrl.Replace("http://", "https://")) + RelativeUrl;
         }
     }
@@ -161,7 +194,7 @@ namespace Anywhere.ArcGIS.Operation
     }
 
     [DataContract]
-    public class GenerateFederatedToken : CommonParameters
+    public class GenerateFederatedToken : CommonParameters, IFederatedGenerateToken
     {
         public GenerateFederatedToken(string serverUrl, ITokenProvider tokenProvider)
         {
@@ -205,10 +238,7 @@ namespace Anywhere.ArcGIS.Operation
 
         public string BuildAbsoluteUrl(string rootUrl)
         {
-            if (string.IsNullOrWhiteSpace(rootUrl))
-            {
-                throw new ArgumentNullException("rootUrl", "rootUrl is null.");
-            }
+            if (string.IsNullOrWhiteSpace(rootUrl)) throw new ArgumentNullException("rootUrl", "rootUrl is null.");
 
             return (DontForceHttps ?
                 rootUrl.Replace("sharing/rest/", "").Replace("sharing/", "") + "sharing/rest/" :

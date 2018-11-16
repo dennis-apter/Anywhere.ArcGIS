@@ -1,8 +1,8 @@
-﻿using Anywhere.ArcGIS.Common;
-using System;
+﻿using System;
+using Anywhere.ArcGIS.Common;
 using Xunit;
 
-namespace ArcGIS.Test
+namespace Anywhere.ArcGIS.Test.Spatial
 {
     public class GeometryTests
     {

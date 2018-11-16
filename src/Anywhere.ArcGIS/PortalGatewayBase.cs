@@ -234,6 +234,19 @@
             return Get<QueryResponse<T>, Query>(queryOptions, ct);
         }
 
+        /// <summary>
+        /// Call the query operation
+        /// </summary>
+        /// <param name="geometryType">The geometry type for the result set</param>
+        /// <param name="queryOptions">Query filter parameters</param>
+        /// <param name="ct">Optional cancellation token to cancel pending request</param>
+        /// <returns>The matching features for the query</returns>
+        public virtual Task<IQueryResponse> Query(Type geometryType, Query queryOptions, CancellationToken ct = default(CancellationToken))
+        {
+            var responseType = typeof(QueryResponse<>).MakeGenericType(geometryType);
+            return Get<IQueryResponse, Query>(responseType, queryOptions, ct);
+        }
+
         public virtual async Task<QueryResponse<T>> BatchQuery<T>(Query queryOptions, CancellationToken ct = default(CancellationToken))
             where T : IGeometry
         {
@@ -377,7 +390,7 @@
 
             if (ct.IsCancellationRequested) return null;
 
-            var result = operation.Features.UpdateGeometries<T>(projected.Geometries);
+            var result = operation.Features.UpdateGeometries(projected.Geometries);
             if (result.First().Geometry.SpatialReference == null) result.First().Geometry.SpatialReference = operation.OutputSpatialReference;
             return result;
         }
@@ -399,8 +412,20 @@
 
             if (ct.IsCancellationRequested) return null;
 
-            var result = features.UpdateGeometries<T>(buffered.Geometries);
-            if (result.First().Geometry.SpatialReference == null) result.First().Geometry.SpatialReference = spatialReference;
+            var result = features.UpdateGeometries(buffered.Geometries);
+            if (result.First().Geometry.SpatialReference == null)
+            {
+                foreach (var feature in result)
+                {
+                    if (feature.Geometry != null && feature.Geometry.SpatialReference == null)
+                    {
+                        var geometry = feature.Geometry;
+                        geometry.SpatialReference = spatialReference;
+                        feature.Geometry = geometry;
+                    }
+                }
+            }
+
             return result;
         }
 
@@ -420,7 +445,7 @@
 
             if (ct.IsCancellationRequested) return null;
 
-            var result = features.UpdateGeometries<T>(simplified.Geometries);
+            var result = features.UpdateGeometries(simplified.Geometries);
             if (result.First().Geometry.SpatialReference == null) result.First().Geometry.SpatialReference = spatialReference;
             return result;
         }
@@ -477,13 +502,13 @@
             response.EnsureSuccessStatusCode();
             await response.Content.LoadIntoBufferAsync();
 
-            var fileInfo = new FileInfo(Path.Combine(documentLocation, attachment.SafeFileName));
+            var fileInfo = new FileInfo(System.IO.Path.Combine(documentLocation, attachment.SafeFileName));
 
             // check that the file doesn't already exist
             int i = 1;
             while (fileInfo.Exists)
             {
-                fileInfo = new FileInfo(Path.Combine(documentLocation, $"rev-{i}-{attachment.SafeFileName}"));
+                fileInfo = new FileInfo(System.IO.Path.Combine(documentLocation, $"rev-{i}-{attachment.SafeFileName}"));
                 i++;
             }
 
@@ -563,14 +588,22 @@
                 return null;
             }
 
-            var token = await TokenProvider.CheckGenerateToken(ct).ConfigureAwait(false);
-
-            if (token != null)
+            try
             {
-                CheckRefererHeader(token.Referer);
+                var token = await TokenProvider.CheckGenerateToken(ct).ConfigureAwait(false);
+                if (token != null)
+                {
+                    CheckRefererHeader(token.Referer);
+                }
+
+                return token;
+            }
+            catch (Exception ex)
+            {
+                _logger.DebugException("Check generate token failed", ex);
             }
 
-            return token;
+            return null;
         }
 
         /// <summary>
@@ -606,7 +639,7 @@
             response.EnsureSuccessStatusCode();
             await response.Content.LoadIntoBufferAsync();
 
-            var fileInfo = new FileInfo(Path.Combine(folderLocation, $"{fileName}.{exportMapResponse.ImageFormat}"));
+            var fileInfo = new FileInfo(System.IO.Path.Combine(folderLocation, $"{fileName}.{exportMapResponse.ImageFormat}"));
 
             using (var fileStream = new FileStream(fileInfo.FullName, FileMode.Create, FileAccess.Write, FileShare.None))
             {
@@ -633,7 +666,14 @@
             _httpClient.DefaultRequestHeaders.Referrer = referer;
         }
 
-        protected async Task<T> Get<T, TRequest>(TRequest requestObject, CancellationToken ct)
+        protected Task<T> Get<T, TRequest>(TRequest requestObject, CancellationToken ct)
+            where TRequest : ArcGISServerOperation
+            where T : IPortalResponse
+        {
+            return Get<T, TRequest>(typeof(T), requestObject, ct);
+        }
+
+        protected async Task<T> Get<T, TRequest>(Type responseType, TRequest requestObject, CancellationToken ct)
             where TRequest : ArcGISServerOperation
             where T : IPortalResponse
         {
@@ -705,7 +745,7 @@
                 return default(T);
             }
 
-            var result = Serializer.AsPortalResponse<T>(resultString);
+            var result = (T) Serializer.AsPortalResponse(responseType, resultString);
             if (result.Error != null)
             {
                 throw new InvalidOperationException(result.Error.ToString());
@@ -764,21 +804,7 @@
                 }
             }
 
-            HttpContent content = null;
-            try
-            {
-                content = new FormUrlEncodedContent(parameters);
-            }
-            catch (FormatException fex)
-            {
-                _logger.WarnException("POST format exception (exception swallowed)", fex);
-                var tempContent = new MultipartFormDataContent();
-                foreach (var keyValuePair in parameters)
-                {
-                    tempContent.Add(new StringContent(keyValuePair.Value), keyValuePair.Key);
-                }
-                content = tempContent;
-            }
+            var content = GetContent(parameters);
 
             if (CancelPendingRequests)
             {
@@ -795,7 +821,7 @@
             string resultString = string.Empty;
             try
             {
-                HttpResponseMessage response = await _httpClient.PostAsync(uri, content, ct).ConfigureAwait(false);
+                var response = await _httpClient.PostAsync(uri, content, ct).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();
 
                 resultString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -822,6 +848,50 @@
             return result;
         }
 
+        private const int FormUrlEncodedContentLimit = 65536;
+
+        private HttpContent GetContent(IDictionary<string, string> parameters)
+        {
+            bool needMultipart = false;
+            int len = 0;
+            foreach (var pair in parameters)
+            {
+                len += pair.Key.Length + pair.Value.Length + 2/*&=*/;
+                if (len >= FormUrlEncodedContentLimit)
+                {
+                    needMultipart = true;
+                    break;
+                }
+            }
+
+            HttpContent content = null;
+            if (!needMultipart)
+            {
+                try
+                {
+                    content = new FormUrlEncodedContent(parameters);
+                }
+                catch (FormatException fex)
+                {
+                    needMultipart = true;
+                    _logger.WarnException("POST format exception (exception swallowed)", fex);
+                }
+            }
+
+            if (needMultipart)
+            {
+                var tempContent = new MultipartFormDataContent();
+                foreach (var keyValuePair in parameters)
+                {
+                    tempContent.Add(new StringContent(keyValuePair.Value), keyValuePair.Key);
+                }
+
+                content = tempContent;
+            }
+
+            return content;
+        }
+
         internal static string AsRequestQueryString<T>(ISerializer serializer, T objectToConvert) where T : ArcGISServerOperation
         {
             if (serializer == null)
@@ -836,7 +906,7 @@
 
             var dictionary = serializer.AsDictionary(objectToConvert);
 
-            return "?" + string.Join("&", dictionary.Keys.Select(k => string.Format("{0}={1}", k, dictionary[k].UrlEncode())));
+            return "?" + string.Join("&", dictionary.Select(p => string.Format("{0}={1}", p.Key, p.Value.UrlEncode())));
         }
     }
 }

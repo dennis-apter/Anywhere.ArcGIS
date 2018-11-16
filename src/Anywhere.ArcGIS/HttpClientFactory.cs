@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using Anywhere.ArcGIS.Logging;
 
 namespace Anywhere.ArcGIS
 {
@@ -17,6 +18,9 @@ namespace Anywhere.ArcGIS
 
         static HttpClientFactory()
         {
+            var timeout = TimeSpan.FromMinutes(10);
+            var log = LogProvider.GetLogger(typeof(HttpClientFactory));
+
             Get = (() =>
             {
                 var httpClientHandler = new HttpClientHandler();
@@ -37,7 +41,17 @@ namespace Anywhere.ArcGIS
 
                 httpClientHandler.PreAuthenticate = true;
 
-                var httpClient = new HttpClient(httpClientHandler);
+                httpClientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =>
+                {
+                    log.Debug($"Sender: {sender}, cert: {cert}, chain: {chain}, sslPolicyErrors: {sslPolicyErrors}.");
+                    return true;
+                };
+
+                var httpClient = new HttpClient(httpClientHandler)
+                {
+                    Timeout = timeout
+                };
+
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/jsonp"));
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
@@ -70,7 +84,17 @@ namespace Anywhere.ArcGIS
                     httpClientHandler.UseDefaultCredentials = false;
                 }
 
-                var httpClient = new HttpClient(httpClientHandler);
+                httpClientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =>
+                {
+                    log.Debug($"Sender: {sender}, cert: {cert}, chain: {chain}, sslPolicyErrors: {sslPolicyErrors}.");
+                    return true;
+                };
+
+                var httpClient = new HttpClient(httpClientHandler)
+                {
+                    Timeout = timeout
+                };
+
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/jsonp"));
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
@@ -102,7 +126,17 @@ namespace Anywhere.ArcGIS
                 // would be the app pool user
                 httpClientHandler.Credentials = CredentialCache.DefaultNetworkCredentials;
 
-                var httpClient = new HttpClient(httpClientHandler);
+                httpClientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =>
+                {
+                    log.Debug($"Sender: {sender}, cert: {cert}, chain: {chain}, sslPolicyErrors: {sslPolicyErrors}.");
+                    return true;
+                };
+
+                var httpClient = new HttpClient(httpClientHandler)
+                {
+                    Timeout = timeout
+                };
+
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/jsonp"));
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
@@ -136,7 +170,17 @@ namespace Anywhere.ArcGIS
                     ? new NetworkCredential(username, password)
                     : new NetworkCredential(username, password, domain);
 
-                var httpClient = new HttpClient(httpClientHandler);
+                httpClientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =>
+                {
+                    log.Debug($"Sender: {sender}, cert: {cert}, chain: {chain}, sslPolicyErrors: {sslPolicyErrors}.");
+                    return true;
+                };
+
+                var httpClient = new HttpClient(httpClientHandler)
+                {
+                    Timeout = timeout
+                };
+
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/jsonp"));
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));

@@ -20,28 +20,28 @@ namespace Anywhere.ArcGIS.Test
             var lineData = "{ \"type\": \"LineString\", \"coordinates\": [ [100.0, 0.0], [101.0, 1.0] ] }";
             Convert<GeoJsonLineString, Polyline>(start + lineData + end);
 
-            Convert<GeoJsonLineString, MultiPoint>(start + lineData.Replace("LineString", "MultiPoint") + end);
+            Convert<GeoJsonMultiPoint, MultiPoint>(start + lineData.Replace("LineString", "MultiPoint") + end);
 
             var polygonData = "{ \"type\": \"Polygon\", \"coordinates\": [ [ [100.0, 0.0], [101.0, 0.0], [101.0, 1.0], [100.0, 1.0], [100.0, 0.0] ] ] }";
             Convert<GeoJsonPolygon, Polygon>(start + polygonData + end);
 
-            Convert<GeoJsonPolygon, Polyline>(start + polygonData.Replace("Polygon", "MultiLineString") + end);
+            Convert<GeoJsonMultiLineString, Polyline>(start + polygonData.Replace("Polygon", "MultiLineString") + end);
 
             var polygonData2 = "{ \"type\": \"Polygon\", \"coordinates\": [ [ [100.0, 0.0], [101.0, 0.0], [101.0, 1.0], [100.0, 1.0], [100.0, 0.0] ], [ [100.2, 0.2], [100.8, 0.2], [100.8, 0.8], [100.2, 0.8], [100.2, 0.2] ] ] }";
             Convert<GeoJsonPolygon, Polygon>(start + polygonData2 + end);
 
-            Convert<GeoJsonPolygon, Polyline>(start + polygonData2.Replace("Polygon", "MultiLineString") + end);
+            Convert<GeoJsonMultiLineString, Polyline>(start + polygonData2.Replace("Polygon", "MultiLineString") + end);
 
-            var multiPolygonData = "{ \"type\": \"Polygon\", \"coordinates\": [ [[[102.0, 2.0], [103.0, 2.0], [103.0, 3.0], [102.0, 3.0], [102.0, 2.0]]], [[[100.0, 0.0], [101.0, 0.0], [101.0, 1.0], [100.0, 1.0], [100.0, 0.0]], [[100.2, 0.2], [100.8, 0.2], [100.8, 0.8], [100.2, 0.8], [100.2, 0.2]]] ] }";
+            var multiPolygonData = "{ \"type\": \"MultiPolygon\", \"coordinates\": [ [[[102.0, 2.0], [103.0, 2.0], [103.0, 3.0], [102.0, 3.0], [102.0, 2.0]]], [[[100.0, 0.0], [101.0, 0.0], [101.0, 1.0], [100.0, 1.0], [100.0, 0.0]], [[100.2, 0.2], [100.8, 0.2], [100.8, 0.8], [100.2, 0.8], [100.2, 0.2]]] ] }";
 
             Convert<GeoJsonMultiPolygon, Polygon>(start + multiPolygonData + end);
         }
 
-        void Convert<TGeoJSON, TGeometry>(string data)
-            where TGeoJSON : IGeoJsonGeometry
+        void Convert<TGeoJson, TGeometry>(string data)
+            where TGeoJson : IGeoJsonGeometry
             where TGeometry : IGeometry
         {
-            var featureCollection = JsonConvert.DeserializeObject<FeatureCollection<TGeoJSON>>(data);
+            var featureCollection = JsonConvert.DeserializeObject<GeoJsonFeatureCollection<TGeoJson>>(data);
 
             Assert.NotNull(featureCollection);
 

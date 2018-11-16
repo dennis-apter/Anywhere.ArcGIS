@@ -26,6 +26,14 @@ namespace Anywhere.ArcGIS
         /// <param name="dataToConvert">Json string to deserialize</param>
         /// <returns></returns>
         T AsPortalResponse<T>(string dataToConvert) where T : IPortalResponse;
+
+        /// <summary>
+        /// Deserialize string as a <see cref="IPortalResponse"/>
+        /// </summary>
+        /// <param name="responseType">The type of the result from the call</param>
+        /// <param name="dataToConvert">Json string to deserialize</param>
+        /// <returns></returns>
+        IPortalResponse AsPortalResponse(Type responseType, string dataToConvert);
     }
 
     /// <summary>

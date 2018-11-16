@@ -1,17 +1,17 @@
-﻿namespace Anywhere.ArcGIS
-{
-    using Anywhere.ArcGIS.Logging;
-    using Anywhere.ArcGIS.Operation;
-    using System;
-    using System.Linq;
-    using System.Net.Http;
-    using System.Threading;
-    using System.Threading.Tasks;
+﻿using System;
+using System.Linq;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Anywhere.ArcGIS.Logging;
+using Anywhere.ArcGIS.Operation;
 
+namespace Anywhere.ArcGIS
+{
     /// <summary>
     /// ArcGIS Server token provider for a federated server
     /// </summary>
-    public class FederatedTokenProvider : ITokenProvider, IDisposable
+    public class FederatedTokenProvider : ITokenProvider, ITokenProviderWithGenerateToken, IDisposable
     {
         HttpClient _httpClient;
         protected readonly GenerateFederatedToken TokenRequest;
@@ -55,7 +55,7 @@
             TokenRequest = new GenerateFederatedToken(serverUrl, tokenProvider) { Referer = referer };
 
             _logger = log() ?? LogProvider.For<FederatedTokenProvider>();
-            _logger.DebugFormat("Created new token provider for {0}", RootUrl);
+            _logger.DebugFormat("Created new token provider for {0} ({1})", RootUrl, serverUrl);
         }
 
         ~FederatedTokenProvider()
@@ -91,6 +91,8 @@
         public string RootUrl { get; private set; }
 
         public string UserName { get { return null; } }
+
+        IGenerateToken ITokenProviderWithGenerateToken.GenerateToken => TokenRequest;
 
         public async Task<Token> CheckGenerateToken(CancellationToken ct)
         {
