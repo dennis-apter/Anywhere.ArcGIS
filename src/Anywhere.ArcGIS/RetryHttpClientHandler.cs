@@ -26,7 +26,8 @@ namespace Anywhere.ArcGIS
 
         protected int RetryCount { get; }
 
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
             int retryCount = 0;
@@ -34,6 +35,7 @@ namespace Anywhere.ArcGIS
 
             while (true)
             {
+                retryCount++;
                 Exception lastException;
                 try
                 {
@@ -53,7 +55,7 @@ namespace Anywhere.ArcGIS
                         throw;
                     }
 
-                    if (!ShouldRetry(retryCount++, ex, ref delayBeforeRetry))
+                    if (!ShouldRetry(retryCount, ex, ref delayBeforeRetry))
                     {
                         throw;
                     }
@@ -64,7 +66,7 @@ namespace Anywhere.ArcGIS
                     delayBeforeRetry = TimeSpan.Zero;
                 }
 
-                Retrying?.Invoke(this, new RetryingEventArgs(retryCount, delayBeforeRetry, lastException));
+                Retrying?.Invoke(this, new RetryingEventArgs(retryCount, RetryCount, request, lastException));
 
                 if (retryCount > 1 && delayBeforeRetry.TotalMilliseconds > 0)
                 {
@@ -195,15 +197,17 @@ namespace Anywhere.ArcGIS
 
     public class RetryingEventArgs : EventArgs
     {
-        public RetryingEventArgs(int currentRetryCount, TimeSpan delay, Exception lastException)
+        public RetryingEventArgs(int currentRetryCount, int totalRetryCount, HttpRequestMessage request, Exception lastException)
         {
             CurrentRetryCount = currentRetryCount;
-            Delay = delay;
+            TotalRetryCount = totalRetryCount;
+            Request = request;
             LastException = lastException;
         }
 
+        public int TotalRetryCount { get; }
         public int CurrentRetryCount { get; }
-        public TimeSpan Delay { get; }
+        public HttpRequestMessage Request { get; }
         public Exception LastException { get; }
     }
 }
