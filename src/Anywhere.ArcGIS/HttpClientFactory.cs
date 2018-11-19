@@ -8,22 +8,15 @@ namespace Anywhere.ArcGIS
 {
     public static class HttpClientFactory
     {
-        public static Func<HttpClient> Get { get; set; }
+        private static readonly ILog Log = LogProvider.GetLogger(typeof(HttpClientFactory));
 
-        public static Func<IWebProxy, HttpClient> GetSecureProxyConnection { get; set; }
+        public static Func<HttpClientHandler> CreateHttpClientHandler { get; set; } = () => new HttpClientHandler();
 
-        public static Func<HttpClient> GetWindowsIntegrated { get; set; }
+        public static Func<HttpClientHandler, HttpClient> CreateHttpClient { get; set; } = httpClientHandler => new HttpClient(httpClientHandler);
 
-        public static Func<string, string, string, HttpClient> GetWindowsNamedUser { get; set; }
-
-        static HttpClientFactory()
-        {
-            var timeout = TimeSpan.FromMinutes(10);
-            var log = LogProvider.GetLogger(typeof(HttpClientFactory));
-
-            Get = (() =>
+        public static Action<HttpClientHandler> InitHttpClientHandler { get; set; } =
+            httpClientHandler =>
             {
-                var httpClientHandler = new HttpClientHandler();
                 if (httpClientHandler.SupportsAutomaticDecompression)
                 {
                     httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
@@ -38,44 +31,46 @@ namespace Anywhere.ArcGIS
                 {
                     httpClientHandler.AllowAutoRedirect = true;
                 }
-
-                httpClientHandler.PreAuthenticate = true;
 
                 httpClientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =>
                 {
-                    log.Debug($"Sender: {sender}, cert: {cert}, chain: {chain}, sslPolicyErrors: {sslPolicyErrors}.");
+                    Log.Debug($"Sender: {sender}, cert: {cert}, chain: {chain}, sslPolicyErrors: {sslPolicyErrors}.");
                     return true;
                 };
+            };
 
-                var httpClient = new HttpClient(httpClientHandler)
-                {
-                    Timeout = timeout
-                };
-
+        public static Action<HttpClient> InitHttpClient { get; set; } =
+            httpClient =>
+            {
+                httpClient.Timeout = TimeSpan.FromMinutes(10);
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/jsonp"));
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
+            };
 
-                return httpClient;
-            });
+        public static Func<HttpClientHandler> GetHttpClientHandler { get; set; } = () =>
+        {
+            var httpClientHandler = CreateHttpClientHandler();
+            InitHttpClientHandler(httpClientHandler);
+            return httpClientHandler;
+        };
 
-            GetSecureProxyConnection = (IWebProxy wp) =>
+        public static Func<HttpClient> Get { get; set; } =
+            () =>
             {
-                var httpClientHandler = new HttpClientHandler();
-                if (httpClientHandler.SupportsAutomaticDecompression)
-                {
-                    httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
-                }
+                var httpClientHandler = GetHttpClientHandler();
 
-                if (httpClientHandler.SupportsProxy)
-                {
-                    httpClientHandler.UseProxy = true;
-                }
+                httpClientHandler.PreAuthenticate = true;
 
-                if (httpClientHandler.SupportsRedirectConfiguration)
-                {
-                    httpClientHandler.AllowAutoRedirect = true;
-                }
+                var httpClient = CreateHttpClient(httpClientHandler);
+                InitHttpClient(httpClient);
+                return httpClient;
+            };
+
+        public static Func<IWebProxy, HttpClient> GetSecureProxyConnection { get; set; } =
+            wp =>
+            {
+                var httpClientHandler = GetHttpClientHandler();
 
                 if (wp != null)
                 {
@@ -84,41 +79,15 @@ namespace Anywhere.ArcGIS
                     httpClientHandler.UseDefaultCredentials = false;
                 }
 
-                httpClientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =>
-                {
-                    log.Debug($"Sender: {sender}, cert: {cert}, chain: {chain}, sslPolicyErrors: {sslPolicyErrors}.");
-                    return true;
-                };
-
-                var httpClient = new HttpClient(httpClientHandler)
-                {
-                    Timeout = timeout
-                };
-
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/jsonp"));
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
-
+                var httpClient = new HttpClient(httpClientHandler);
+                InitHttpClient(httpClient);
                 return httpClient;
             };
 
-            GetWindowsIntegrated = (() =>
+        public static Func<HttpClient> GetWindowsIntegrated { get; set; } =
+            () =>
             {
-                var httpClientHandler = new HttpClientHandler();
-                if (httpClientHandler.SupportsAutomaticDecompression)
-                {
-                    httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
-                }
-
-                if (httpClientHandler.SupportsProxy)
-                {
-                    httpClientHandler.UseProxy = true;
-                }
-
-                if (httpClientHandler.SupportsRedirectConfiguration)
-                {
-                    httpClientHandler.AllowAutoRedirect = true;
-                }
+                var httpClientHandler = GetHttpClientHandler();
 
                 httpClientHandler.PreAuthenticate = true;
 
@@ -126,41 +95,15 @@ namespace Anywhere.ArcGIS
                 // would be the app pool user
                 httpClientHandler.Credentials = CredentialCache.DefaultNetworkCredentials;
 
-                httpClientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =>
-                {
-                    log.Debug($"Sender: {sender}, cert: {cert}, chain: {chain}, sslPolicyErrors: {sslPolicyErrors}.");
-                    return true;
-                };
-
-                var httpClient = new HttpClient(httpClientHandler)
-                {
-                    Timeout = timeout
-                };
-
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/jsonp"));
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
-
+                var httpClient = new HttpClient(httpClientHandler);
+                InitHttpClient(httpClient);
                 return httpClient;
-            });
+            };
 
-            GetWindowsNamedUser = ((username, password, domain) =>
+        public static Func<string, string, string, HttpClient> GetWindowsNamedUser { get; set; } =
+            (username, password, domain) =>
             {
-                var httpClientHandler = new HttpClientHandler();
-                if (httpClientHandler.SupportsAutomaticDecompression)
-                {
-                    httpClientHandler.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
-                }
-
-                if (httpClientHandler.SupportsProxy)
-                {
-                    httpClientHandler.UseProxy = true;
-                }
-
-                if (httpClientHandler.SupportsRedirectConfiguration)
-                {
-                    httpClientHandler.AllowAutoRedirect = true;
-                }
+                var httpClientHandler = GetHttpClientHandler();
 
                 httpClientHandler.PreAuthenticate = true;
                 httpClientHandler.UseDefaultCredentials = false;
@@ -170,23 +113,9 @@ namespace Anywhere.ArcGIS
                     ? new NetworkCredential(username, password)
                     : new NetworkCredential(username, password, domain);
 
-                httpClientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =>
-                {
-                    log.Debug($"Sender: {sender}, cert: {cert}, chain: {chain}, sslPolicyErrors: {sslPolicyErrors}.");
-                    return true;
-                };
-
-                var httpClient = new HttpClient(httpClientHandler)
-                {
-                    Timeout = timeout
-                };
-
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/jsonp"));
-                httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
-
+                var httpClient = new HttpClient(httpClientHandler);
+                InitHttpClient(httpClient);
                 return httpClient;
-            });
-        }
+            };
     }
 }
